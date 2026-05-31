@@ -2,6 +2,7 @@ import streamlit as st
 import akshare as ak
 import os
 import datetime
+from datetime import timezone, timedelta
 import pandas as pd
 from streamlit_autorefresh import st_autorefresh
 
@@ -10,7 +11,7 @@ os.environ['NO_PROXY'] = 'eastmoney.com,sinajs.cn'
 
 st.set_page_config(page_title="海外LOF套利雷达", layout="wide")
 
-# 1. 🌟 新增核心逻辑：让网页右上角的时间每 10 秒钟自动刷新一次（既能看到最新时间，又不会频繁轰炸东财接口）
+# 1. 让网页右上角的时间每 10 秒钟自动刷新一次
 st_autorefresh(interval=10000, key="dataclock")
 
 # 2. 注入高档深色系 CSS 样式表
@@ -33,20 +34,23 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 3. 🌟 核心视觉升级：在网页最顶端渲染“时间与战术提醒横幅”
-now_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+# 3. 🍏 【时区硬核校准】：强行将服务器时间扭转为中国北京时间（UTC+8）
+SHA_TZ = timezone(timedelta(hours=8))
+now_time = datetime.datetime.now(SHA_TZ).strftime("%Y-%m-%d %H:%M:%S")
+
 st.markdown(f"""
     <div class="time-banner">
-        <div class="time-text">🕒 当前系统时间：{now_time}</div>
-        <div class="remind-text">⚡ 提醒：每个交易日【14:30】点击下方按钮可观看实时数据，抓取盘中最后半小时的黄金决战期溢价！</div>
+        <div class="time-text">🕒 当前北京时间：{now_time}</div>
+        <div class="remind-text">⚡ 战术提醒：请于每个交易日【14:30】准时点击下方按钮，抓取盘中最后半小时的黄金决战期溢价！</div>
     </div>
 """, unsafe_allow_html=True)
 
-st.title("🦅 搞钱小本本的 LOF 溢价雷达")
+st.title("🦅 梁总的海外 LOF 溢价雷达")
 st.caption("全自动大浪淘沙 • 实时过滤已暂停申购的品种")
 
 if st.button("🔄 立即刷新全市场数据", type="primary"):
-    current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+    # 🍏 刷新的统计时间同步校准为北京时间
+    current_time = datetime.datetime.now(SHA_TZ).strftime("%Y-%m-%d %H:%M")
     
     with st.spinner("正在全力检索全市场数据并生成报告..."):
         overseas_keywords = ["纳斯", "标普", "原油", "油气", "商品", "互联", "中概", "日经", "德国", "法国", "印度", "越南", "亚洲", "全球", "海外"]
