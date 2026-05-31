@@ -10,11 +10,23 @@ os.environ['NO_PROXY'] = 'eastmoney.com,sinajs.cn'
 st.set_page_config(page_title="海外LOF套利雷达", layout="centered")
 
 def text_to_image(text):
-    """画图并返回图片对象"""
+    """画图并返回图片对象，完美解决Linux云端中文字体缺失问题"""
     bg_color = (18, 24, 38)       
     text_color = (243, 244, 246)  
     accent_color = (239, 68, 68)  
-    font = ImageFont.load_default()
+    
+    # 🌟 核心修复逻辑：优先读取我们上传到仓库里的黑体字文件
+    font_path = "simhei.ttf"
+    if os.path.exists(font_path):
+        try:
+            font = ImageFont.truetype(font_path, 16)      # 正文大一点点
+            title_font = ImageFont.truetype(font_path, 20) # 标题单独用大号
+        except:
+            font = ImageFont.load_default()
+            title_font = font
+    else:
+        font = ImageFont.load_default()
+        title_font = font
 
     lines = text.split("\n")
     line_height = 30
@@ -27,11 +39,15 @@ def text_to_image(text):
 
     current_y = padding
     for line in lines:
-        if "实时溢价率" in line or "昨日收盘溢价" in line:
-            draw.text((padding, current_y), line, font=font, fill=accent_color)
+        # 如果是第一行标题或者带有提示词的行，用大一号的 title_font
+        is_title = "LOF 溢价" in line or "数据统计时间" in line
+        current_font = title_font if is_title else font
+        
+        if "实时溢价率" in line or "最近收盘溢价率" in line:
+            draw.text((padding, current_y), line, font=current_font, fill=accent_color)
             current_y += line_height
         else:
-            draw.text((padding, current_y), line, font=font, fill=text_color)
+            draw.text((padding, current_y), line, font=current_font, fill=text_color)
             current_y += line_height
 
     return image
