@@ -9,13 +9,13 @@ from streamlit_autorefresh import st_autorefresh
 # 强行忽略代理
 os.environ['NO_PROXY'] = 'eastmoney.com,sinajs.cn'
 
-# 🍏 【标题微调】：同步修改浏览器标签页的标题为“搞钱小本本”
-st.set_page_config(page_title="搞钱小本本的lof溢价雷达", layout="centered")
+# 🍏 【核心调整 1】：将布局从 "wide" 改为 "centered"（限制网页最大宽度为黄金分割比例，两边自动留白居中）
+st.set_page_config(page_title="海外LOF套利雷达", layout="centered")
 
 # 让网页右上角的时间每 10 秒钟自动刷新一次
 st_autorefresh(interval=10000, key="dataclock")
 
-# 注入高档深色系 CSS 样式表
+# 【核心调整 2】：微调 CSS 样式表，让横幅和卡片在居中视野里呈现最佳质感
 st.markdown("""
     <style>
     .stApp { background-color: #121826; color: #F3F4F6; }
@@ -24,7 +24,7 @@ st.markdown("""
         padding: 18px; 
         border-radius: 8px; 
         margin-bottom: 25px; 
-        text-align: center; 
+        text-align: center; /* 确保横幅内文本居中 */
         border: 1px solid #60A5FA;
     }
     .time-text { font-size: 22px; font-weight: bold; color: #FFFFFF; font-family: monospace; }
@@ -35,10 +35,12 @@ st.markdown("""
         border-radius: 10px; 
         margin-bottom: 15px; 
         border-left: 5px solid #EF4444;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); 
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); /* 增加一点微弱的阴影，让卡片在居中时更有立体感 */
     }
     .lof-title { color: #F3F4F6; font-size: 18px; font-weight: bold; }
     .premium-text { color: #EF4444; font-size: 20px; font-weight: bold; }
+    
+    /* 强行让按钮、加载进度条等原生组件在正中间对齐 */
     .stButton { text-align: center; }
     </style>
 """, unsafe_allow_html=True)
@@ -54,8 +56,7 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-# 🍏 【核心更名】：主标题正式变更为“搞钱小本本的lof溢价雷达”
-st.title("🦅 搞钱小本本的lof溢价雷达")
+st.title("🦅 搞钱小本本的 LOF 溢价雷达")
 st.caption("全自动大浪淘沙 • 实时过滤已暂停申购的品种")
 
 if st.button("🔄 立即刷新全市场数据", type="primary"):
@@ -101,6 +102,7 @@ if st.button("🔄 立即刷新全市场数据", type="primary"):
             st.write(f"**当前过滤规则**：溢价率 $\\ge$ {premium_threshold}%，且【开放场外申购】。已自动拦截暂停申购品种。")
             st.markdown("---")
             
+            # 🍏 【核心调整 3】：并排数据大看板在居中模式下不需要分太宽，保持优雅紧凑
             col1, col2 = st.columns(2)
             cards_html_list = []
             count_target = 0
@@ -141,11 +143,44 @@ if st.button("🔄 立即刷新全市场数据", type="primary"):
                             
                             card_html = f"""
                             <div class="lof-card">
-                                <div class="lof-title">{count_target}. 【{name}
-】 ({code})</div>
+                                <div class="lof-title">{count_target}. 【{name}】 ({code})</div>
                                 <div style="margin-top: 8px;">
                                     <span class="premium-text">{'盘中实时' if is_market_open else '静态收盘'}溢价率：{premium:.2f}%</span>
                                 </div>
                                 <div style="margin-top: 8px; color: #9CA3AF; font-size: 14px;">
                                     • 场内现价/收盘价：<b style="color: #F3F4F6;">{price:.3f} 元</b> &nbsp;&nbsp;|&nbsp;&nbsp; 
-                                    {'场外盘中估值' if is_market_open else '场外最新官方净值'}：<b style="color: #F3F4F6;">{row.get('盘中估值', row.get('最新
+                                    {'场外盘中估值' if is_market_open else '场外最新官方净值'}：<b style="color: #F3F4F6;">{row.get('盘中估值', row.get('最新净值', 0.0)):.4f} 元</b>
+                                </div>
+                                <div style="margin-top: 4px; color: #9CA3AF; font-size: 14px;">
+                                    • 当日场内成交额：<b style="color: #F3F4F6;">{amount_wan:.2f} 万元</b> &nbsp;&nbsp;|&nbsp;&nbsp; 
+                                    场外申购状态：<b style="color: #10B981;">✅ {status_desc}</b>
+                                </div>
+                            </div>
+                            """
+                            
+                            if is_market_open:
+                                if amount_wan < 200:
+                                    card_html += f'<div style="color: #F59E0B; font-size: 14px; margin-bottom: 15px; font-weight: bold;">⚠️ 实战提示：该品种当日成交额不足 200 万，流动性偏低，注意防范冲击成本。</div>'
+                                else:
+                                    card_html += f'<div style="color: #10B981; font-size: 14px; margin-bottom: 15px; font-weight: bold;">🔥 实战提示：成交活跃，流动性十分充裕，属于优质套利标的！</div>'
+                            
+                            cards_html_list.append(card_html)
+                    except:
+                        continue
+
+            with col1:
+                st.metric(label="🗺️ A 股全市场 LOF 扫描总数", value=f"{total_scanned} 只")
+            with col2:
+                st.metric(label="🎯 溢价率 $\\ge$ 3% 且可申购达标数", value=f"{count_target} 只")
+            
+            st.markdown("---")
+
+            if count_target == 0:
+                st.subheader("⚖️ 市场平静。当前全市场暂未发现符合条件的疯狂品种。☕")
+            else:
+                for html_content in cards_html_list:
+                    st.markdown(html_content, unsafe_allow_html=True)
+                st.info("💡 提示：电脑端可直接拖动鼠标复制卡片文本，手机端长按即可选择复制文字发至微信群。")
+        else:
+            st.warning("☕ 📢 提示：当前正值周末/节假日交易所系统清算期，官方历史数据源临时闭门维护。")
+            st.info("💡 本雷达将于【明天（周一）开盘后】全面恢复全自动实时扫盘，届时请点击上方按钮刷新。")
