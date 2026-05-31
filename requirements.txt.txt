@@ -1,3 +1,0 @@
-akshare
-streamlit
-pillow
