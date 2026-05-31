@@ -1,0 +1,29 @@
+name: 飞书LOF全自动完美扫盘
+
+on:
+  workflow_dispatch:  # 保留人工手动触发后门
+  schedule:
+    - cron: '30 6 * * 1-5'  # 🍏 国际标准时间 6:30，正好对应北京时间周一至周五的下午 14:30 决战期！
+
+jobs:
+  run-radar:
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'  # 强行粉碎 Node 20 警告
+    steps:
+    - name: 1. 拉取最新代码
+      uses: actions/checkout@v4
+
+    - name: 2. 准备Python环境
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: 3. 安装量化依赖库
+      run: |
+        pip install akshare pandas requests
+
+    - name: 4. 强行开火发射
+      env:
+        FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+      run: python cron_radar.py
