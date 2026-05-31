@@ -15,6 +15,11 @@ st.set_page_config(page_title="搞钱小本本的lof溢价雷达", layout="cente
 st.markdown("""
     <style>
     .stApp { background-color: #121826; color: #F3F4F6; }
+    
+    /* 🌟 新增：强制让 Streamlit 原生的 Title 和 Caption 在网页中轴线居中对齐 */
+    .stApp h1 { text-align: center; font-size: 32px; font-weight: bold; margin-bottom: 5px; }
+    .stApp p { text-align: center; color: #9CA3AF; }
+    
     .time-banner { 
         background: linear-gradient(135deg, #1E3A8A, #3B82F6); 
         padding: 18px; 
@@ -41,7 +46,7 @@ st.markdown("""
     .lof-title { color: #F3F4F6; font-size: 18px; font-weight: bold; }
     .premium-text { color: #EF4444; font-size: 20px; font-weight: bold; }
     
-    /* 强制让 Streamlit 容器内的按钮组件自身水平居中 */
+    /* 强制让 3 栏容器内的按钮组件自身水平居中 */
     div.stButton { text-align: center; }
     </style>
 """, unsafe_allow_html=True)
@@ -51,10 +56,7 @@ SHA_TZ = timezone(timedelta(hours=8))
 now = datetime.datetime.now(SHA_TZ)
 now_time = now.strftime("%Y-%m-%d %H:%M:%S")
 
-st.title("🦅 搞钱小本本的lof溢价雷达")
-st.caption("全自动大浪淘沙 • 实时过滤已暂停申购的品种")
-
-# 将战术横幅固定在标题下方
+# 将战术横幅固定在最上方
 st.markdown(f"""
     <div class="time-banner">
         <div class="remind-text">⚡ 战术铁律：请于每个交易日【14:30】准时点击下方按钮刷新 ⚡</div>
@@ -62,11 +64,17 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-# 🍏 【UI 核心调整】：利用三列等分画布，强行把按钮卡在正中间列，实现完美的物理居中
+# 🌟 已经通过上方 CSS 样式强行注入居中属性
+st.title("🦅 搞钱小本本的lof溢价雷达")
+st.caption("全自动大浪淘沙 • 实时过滤已暂停申购的品种")
+
+# 预留间距，让排版更舒展
+st.write("")
+
+# 利用三列等分画布，强行把按钮卡在正中间列，实现完美的物理居中
 col_left, col_btn, col_right = st.columns([1, 3, 1])
 
 with col_btn:
-    # 🍏 【文案核心微调】：按您的要求正式变更为“立即刷新市场LOF数据并生成报告”
     refresh_trigger = st.button("🔄 立即刷新市场LOF数据并生成报告", type="primary", use_container_width=True)
 
 # 核心刷新动作执行逻辑
@@ -122,7 +130,8 @@ if refresh_trigger:
             else:
                 st.info(f"📢 复盘扫盘成功 | 数据抓取时间 (北京时间): {now_time}（已自动激活盘后备用算法）")
             
-            st.write(f"**当前过滤规则**：溢价率 $\\ge$ {premium_threshold}%，且【开放场外申购】。已自动拦截暂停申购品种。")
+            # 让规则文本也优雅地在正中间做出提示说明
+            st.markdown(f"<p style='text-align: center; color: #9CA3AF;'><b>当前过滤规则</b>：溢价率 ≥ {premium_threshold}%，且【开放场外申购】。已自动拦截暂停申购品种。</p>", unsafe_allow_html=True)
             st.markdown("---")
             
             # 渲染大看板指标
@@ -138,7 +147,7 @@ if refresh_trigger:
                 
                 if is_overseas:
                     try:
-                        premium = float(row['溢价率']) if is_market_open else float(row['真实收盘溢解率'])
+                        premium = float(row['溢价率']) if is_market_open else float(row['真实收盘溢价率'])
                         if premium >= premium_threshold:
                             try:
                                 limit_info = ak.fund_open_format_xw()
@@ -164,7 +173,7 @@ if refresh_trigger:
 
             # 原地渲染卡片
             if count_target == 0:
-                st.subheader("⚖️ 市场平静。当前全市场暂未发现符合条件的疯狂品种。☕")
+                st.markdown("<h3 style='text-align: center; color: #9CA3AF;'>⚖️ 市场平静。当前全市场暂未发现符合条件的疯狂品种。☕</h3>", unsafe_allow_html=True)
             else:
                 current_rank = 0
                 for row, premium, status_desc in valid_rows:
