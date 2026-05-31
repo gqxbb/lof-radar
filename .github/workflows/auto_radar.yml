@@ -1,0 +1,28 @@
+name: 钉钉LOF定时全自动扫盘
+
+on:
+  workflow_dispatch:  # 人工手动触发后门
+  schedule:
+    # 国际标准时间 06:30 = 北京时间下午 14:30
+    - cron: '30 6 * * 1-5'
+
+jobs:
+  run-radar:
+    runs-on: ubuntu-latest
+    steps:
+    - name: 拉取最新代码
+      uses: actions/checkout@v4  # 🍏 升级到 v4，彻底消除 Node 警告！
+
+    - name: 准备Python环境
+      uses: actions/setup-python@v5  # 🍏 升级到 v5，全面支持最新版环境！
+      with:
+        python-version: '3.10'
+
+    - name: 安装量化依赖库
+      run: |
+        pip install akshare pandas requests
+
+    - name: 关联钉钉保险箱并强行发射
+      env:
+        DING_WEBHOOK: ${{ secrets.DING_WEBHOOK }}
+      run: python cron_radar.py
