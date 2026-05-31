@@ -9,43 +9,32 @@ from streamlit_autorefresh import st_autorefresh
 # 强行忽略代理
 os.environ['NO_PROXY'] = 'eastmoney.com,sinajs.cn'
 
-# 🍏 【核心调整 1】：将布局从 "wide" 改为 "centered"（限制网页最大宽度为黄金分割比例，两边自动留白居中）
-st.set_page_config(page_title="海外LOF套利雷达", layout="centered")
+st.set_page_config(page_title="海外LOF套利雷达", layout="wide")
 
-# 让网页右上角的时间每 10 秒钟自动刷新一次
+# 1. 让网页右上角的时间每 10 秒钟自动刷新一次
 st_autorefresh(interval=10000, key="dataclock")
 
-# 【核心调整 2】：微调 CSS 样式表，让横幅和卡片在居中视野里呈现最佳质感
+# 2. 注入高档深色系 CSS 样式表
 st.markdown("""
     <style>
     .stApp { background-color: #121826; color: #F3F4F6; }
     .time-banner { 
         background: linear-gradient(135deg, #1E3A8A, #3B82F6); 
-        padding: 18px; 
+        padding: 15px; 
         border-radius: 8px; 
-        margin-bottom: 25px; 
-        text-align: center; /* 确保横幅内文本居中 */
+        margin-bottom: 20px; 
+        text-align: center;
         border: 1px solid #60A5FA;
     }
     .time-text { font-size: 22px; font-weight: bold; color: #FFFFFF; font-family: monospace; }
     .remind-text { font-size: 14px; color: #E0F2FE; margin-top: 5px; font-weight: bold; }
-    .lof-card { 
-        background-color: #1F2937; 
-        padding: 20px; 
-        border-radius: 10px; 
-        margin-bottom: 15px; 
-        border-left: 5px solid #EF4444;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); /* 增加一点微弱的阴影，让卡片在居中时更有立体感 */
-    }
+    .lof-card { background-color: #1F2937; padding: 20px; border-radius: 10px; margin-bottom: 15px; border-left: 5px solid #EF4444; }
     .lof-title { color: #F3F4F6; font-size: 18px; font-weight: bold; }
     .premium-text { color: #EF4444; font-size: 20px; font-weight: bold; }
-    
-    /* 强行让按钮、加载进度条等原生组件在正中间对齐 */
-    .stButton { text-align: center; }
     </style>
 """, unsafe_allow_html=True)
 
-# 3. 渲染“时间与战术提醒横幅”
+# 3. 🍏 【时区硬核校准】：强行将服务器时间扭转为中国北京时间（UTC+8）
 SHA_TZ = timezone(timedelta(hours=8))
 now_time = datetime.datetime.now(SHA_TZ).strftime("%Y-%m-%d %H:%M:%S")
 
@@ -56,10 +45,11 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-st.title("🦅 搞钱小本本的 LOF 溢价雷达")
+st.title("🦅 梁总的海外 LOF 溢价雷达")
 st.caption("全自动大浪淘沙 • 实时过滤已暂停申购的品种")
 
 if st.button("🔄 立即刷新全市场数据", type="primary"):
+    # 🍏 刷新的统计时间同步校准为北京时间
     current_time = datetime.datetime.now(SHA_TZ).strftime("%Y-%m-%d %H:%M")
     
     with st.spinner("正在全力检索全市场数据并生成报告..."):
@@ -102,7 +92,6 @@ if st.button("🔄 立即刷新全市场数据", type="primary"):
             st.write(f"**当前过滤规则**：溢价率 $\\ge$ {premium_threshold}%，且【开放场外申购】。已自动拦截暂停申购品种。")
             st.markdown("---")
             
-            # 🍏 【核心调整 3】：并排数据大看板在居中模式下不需要分太宽，保持优雅紧凑
             col1, col2 = st.columns(2)
             cards_html_list = []
             count_target = 0
