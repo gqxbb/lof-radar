@@ -13,7 +13,7 @@ os.environ['NO_PROXY'] = 'eastmoney.com,sinajs.cn'
 st.set_page_config(page_title="搞钱小本本的lof溢价雷达", layout="centered")
 
 # 🍏 梁总，请在这里重新贴入你刚才拿到的真实 PDU 字符串钥匙
-PUSHDEER_KEY = "你的PushDeerKey写在这里" 
+PUSHDEER_KEY = "PDU41743TMGmcUxFLSheqxKbOVZg6iqy8JH0i1q6a" 
 
 # 注入高档深色系 CSS 样式表
 st.markdown("""
