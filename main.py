@@ -2,69 +2,50 @@ import streamlit as st
 import akshare as ak
 import os
 import datetime
-from PIL import Image, ImageDraw, ImageFont
 
 # 强行忽略代理
 os.environ['NO_PROXY'] = 'eastmoney.com,sinajs.cn'
 
-st.set_page_config(page_title="海外LOF套利雷达", layout="centered")
+# 网页基本配置：设置为宽屏模式，方便团队看盘
+st.set_page_config(page_title="海外LOF套利雷达", layout="wide")
 
-def text_to_image(text):
-    """画图并返回图片对象，完美解决Linux云端中文字体缺失问题"""
-    bg_color = (18, 24, 38)       
-    text_color = (243, 244, 246)  
-    accent_color = (239, 68, 68)  
-    
-    # 🌟 核心修复逻辑：优先读取我们上传到仓库里的黑体字文件
-    font_path = "simhei.ttf"
-    if os.path.exists(font_path):
-        try:
-            font = ImageFont.truetype(font_path, 16)      # 正文大一点点
-            title_font = ImageFont.truetype(font_path, 20) # 标题单独用大号
-        except:
-            font = ImageFont.load_default()
-            title_font = font
-    else:
-        font = ImageFont.load_default()
-        title_font = font
+# 利用 CSS 样式表将网页背景硬编码为高档的深色系（暗夜蓝），保持原本的极客风审美
+st.markdown("""
+    <style>
+    .stApp {
+        background-color: #121826;
+        color: #F3F4F6;
+    }
+    .lof-card {
+        background-color: #1F2937;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 15px;
+        border-left: 5px solid #EF4444;
+    }
+    .lof-title {
+        color: #F3F4F6;
+        font-size: 18px;
+        font-weight: bold;
+    }
+    .premium-text {
+        color: #EF4444;
+        font-size: 20px;
+        font-weight: bold;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-    lines = text.split("\n")
-    line_height = 30
-    padding = 40
-    img_width = 700
-    img_height = (len(lines) * line_height) + (padding * 2)
+st.title("🦅 搞钱小本本的 LOF 溢价雷达")
+st.caption("全自动大浪淘沙 • 实时过滤已暂停申购的品种")
 
-    image = Image.new("RGB", (img_width, img_height), color=bg_color)
-    draw = ImageDraw.Draw(image)
-
-    current_y = padding
-    for line in lines:
-        # 如果是第一行标题或者带有提示词的行，用大一号的 title_font
-        is_title = "LOF 溢价" in line or "数据统计时间" in line
-        current_font = title_font if is_title else font
-        
-        if "实时溢价率" in line or "最近收盘溢价率" in line:
-            draw.text((padding, current_y), line, font=current_font, fill=accent_color)
-            current_y += line_height
-        else:
-            draw.text((padding, current_y), line, font=current_font, fill=text_color)
-            current_y += line_height
-
-    return image
-
-# Streamlit 网页前端展示
-st.title("搞钱小本本的 LOF 溢价雷达")
-st.caption("全自动大浪淘沙，实时过滤已暂停申购的品种")
-
-# 放一个手动刷新按钮
-if st.button("🔄 立即刷新全市场数据"):
+if st.button("🔄 立即刷新全市场数据", type="primary"):
     current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
     
-    with st.spinner("正在全力检索全市场数据并绘制卡片..."):
+    with st.spinner("正在全力检索全市场数据并生成报告..."):
         overseas_keywords = ["纳斯", "标普", "原油", "油气", "商品", "互联", "中概", "日经", "德国", "法国", "印度", "越南", "亚洲", "全球", "海外"]
         premium_threshold = 3.0
         
-        report = ""
         is_market_open = True
         fund_df = None
 
@@ -72,31 +53,27 @@ if st.button("🔄 立即刷新全市场数据"):
         try:
             fund_df = ak.fund_lof_spot_em()
         except Exception as e:
-            # 🔴 如果报错（如周末休市），自动启动备用方案，抓取历史收盘数据
             is_market_open = False
             try:
-                # 抓取最近一个交易日的全市场基金收盘净值及表现快照
+                # 闭市备用方案：抓取最近一个交易日的收盘快照
                 fund_df = ak.fund_open_fund_daily_em()
             except Exception as e_inner:
                 st.error(f"云端服务器网络繁忙，请稍后再试: {e_inner}")
 
         if fund_df is not None:
+            # 顶部状态面板展示
             if is_market_open:
-                report += f"LOF 溢价及流动性雷达（盘中实时版）\n"
-                report += f"数据统计时间: {current_time}\n"
+                st.success(f"📊 📊 LOF 溢价及流动性雷达（盘中实时版） | 统计时间: {current_time}")
             else:
-                report += f"LOF 溢价雷达（📢当前非交易时间，显示最近收盘数据）\n"
-                report += f"数据统计时间: 周末/节假日闭市复盘\n"
+                st.info(f"📢 当前非交易时间，已自动切换为最近交易日收盘复盘数据")
             
-            report += f"--------------------------------------------------\n"
-            report += f"提示：以下海外 LOF 溢价已突破 {premium_threshold}%，且开放场外申购！\n\n"
+            st.write(f"**过滤规则**：溢价率 $\\ge$ {premium_threshold}%，且【开放场外申购】的有效套利品种。已自动隐藏暂停申购品种。")
+            st.markdown("---")
             
             found_any = False
             count = 0
 
-            # 统一提取状态的工具（由于实时接口和收盘接口字段不同，做一下智能兼容）
             for index, row in fund_df.iterrows():
-                # 兼容两个接口的代码和名称字段
                 code = row.get('基金代码', row.get('代码', ''))
                 name = row.get('基金简称', row.get('名称', ''))
                 
@@ -104,15 +81,14 @@ if st.button("🔄 立即刷新全市场数据"):
                 
                 if is_overseas:
                     try:
-                        # 兼容实时溢价率和历史溢价率字段
-                        premium_val = row.get('溢价率', row.get('日增长率', 0.0)) # 兜底逻辑
+                        premium_val = row.get('溢价率', row.get('日增长率', 0.0))
                         try:
                             premium = float(premium_val)
                         except:
                             continue
                             
                         if premium >= premium_threshold:
-                            # 过滤暂停申购的品种
+                            # 实时动态过滤暂停申购
                             try:
                                 limit_info = ak.fund_open_format_xw()
                                 matched_fund = limit_info[limit_info['基金代码'] == code]
@@ -126,31 +102,42 @@ if st.button("🔄 立即刷新全市场数据"):
                             found_any = True
                             count += 1
                             
-                            # 获取价格和成交额（盘中和收盘字段兼容）
                             price = float(row.get('现价', row.get('单位净值', 0.0)))
                             iopv = float(row.get('盘中估值', row.get('累计净值', 0.0)))
                             amount_raw = float(row.get('成交额', 0.0))
                             amount_wan = amount_raw / 10000.0
                             
-                            report += f" {count}. 【{name}】({code})\n"
-                            if is_market_open:
-                                report += f"    • 实时溢价率：{premium:.2f}%\n"
-                                report += f"    • 实时现价：{price:.3f} 元  /  盘中估值(IOPV)：{iopv:.4f} 元\n"
-                                report += f"    • 当日场内成交额：{amount_wan:.2f} 万元\n"
-                            else:
-                                report += f"    • 最近收盘溢价率：{premium:.2f}%\n"
-                                report += f"    • 最新净值：{price:.4f} 元\n"
+                            # 使用原生 HTML/Markdown 组件渲染极其精美的深色卡片，中文绝不乱码
+                            with st.container():
+                                st.markdown(f"""
+                                <div class="lof-card">
+                                    <div class="lof-title">{count}. 【{name}】 ({code})</div>
+                                    <div style="margin-top: 8px;">
+                                        <span class="premium-text">{'实时' if is_market_open else '昨日收盘'}溢价率：{premium:.2f}%</span>
+                                    </div>
+                                    <div style="margin-top: 8px; color: #9CA3AF; font-size: 14px;">
+                                        • 场内现价/单位净值：<b style="color: #F3F4F6;">{price:.4f} 元</b> &nbsp;&nbsp;|&nbsp;&nbsp; 
+                                        盘中估值/累计净值：<b style="color: #F3F4F6;">{iopv:.4f} 元</b>
+                                    </div>
+                                    <div style="margin-top: 4px; color: #9CA3AF; font-size: 14px;">
+                                        • 当日场内成交额：<b style="color: #F3F4F6;">{amount_wan:.2f} 万元</b> &nbsp;&nbsp;|&nbsp;&nbsp; 
+                                        场外申购状态：<b style="color: #10B981;">✅ {status_desc}</b>
+                                    </div>
+                                </div>
+                                """, unsafe_allow_html=True)
                                 
-                            report += f"    • 场外申购状态：{status_desc}\n\n"
+                                # 流动性实战提示
+                                if is_market_open:
+                                    if amount_wan < 200:
+                                        st.warning(f"⚠️ 实战提示：该品种当日场内成交额不足 200 万，流动性偏低，注意控制仓位和出货风险。")
+                                    else:
+                                        st.success(f"🔥 实战提示：流动性十分充裕，属于高价值主力套利目标！")
                     except:
                         continue
 
+            st.markdown("---")
             if not found_any:
-                report += f" 市场平静。当前暂未发现满足条件的疯狂品种。 ☕"
+                st.subheader("⚖️ 市场平静。当前全市场暂未发现符合条件的疯狂品种。☕")
             else:
-                report += f"--------------------------------------------------\n"
-                report += f"本次雷达共捕获 {count} 只具备实战价值的高溢价目标。"
-
-            # 生成图片并在网页上画出来
-            img_result = text_to_image(report)
-            st.image(img_result, caption="手机端长按图片或电脑端右键即可保存分享", use_column_width=True)
+                st.metric(label="雷达捕获目标总数", value=f"{count} 只")
+                st.info("💡 提示：电脑端可直接拖动鼠标复制卡片文本，手机端长按即可选择复制文字发至微信群。")
