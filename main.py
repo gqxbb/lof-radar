@@ -53,7 +53,7 @@ def text_to_image(text):
     return image
 
 # Streamlit 网页前端展示
-st.title("🦅 梁总的海外 LOF 溢价雷达")
+st.title("搞钱小本本的 LOF 溢价雷达")
 st.caption("全自动大浪淘沙，实时过滤已暂停申购的品种")
 
 # 放一个手动刷新按钮
