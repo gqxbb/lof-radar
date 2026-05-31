@@ -4,7 +4,7 @@ import datetime
 from datetime import timezone, timedelta
 import requests
 
-# 强行忽略可能导致连线失败的代理
+# 强行忽略可能导致连线失败的海外代理
 os.environ['NO_PROXY'] = 'eastmoney.com,sinajs.cn,feishu.cn'
 
 # 从 GitHub 保险箱里读取飞书专属长链接
@@ -29,7 +29,7 @@ def run_radar():
         
         count_target = 0
         
-        # 👑 飞书顶级彭博卡片排版协议（大标题开头死死咬住“测试”暗号）
+        # 👑 飞书顶级彭博卡片排版协议（大标题开头死死咬住“测试”暗号，击穿拦截）
         card_content = {
             "config": {"wide_screen_mode": True},
             "header": {
