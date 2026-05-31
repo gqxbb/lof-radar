@@ -4,15 +4,12 @@ import os
 import datetime
 from datetime import timezone, timedelta
 import pandas as pd
-from streamlit_autorefresh import st_autorefresh
 
 # 强行忽略代理
 os.environ['NO_PROXY'] = 'eastmoney.com,sinajs.cn'
 
+# 限制网页最大宽度为黄金分割比例，两边自动留白居中
 st.set_page_config(page_title="搞钱小本本的lof溢价雷达", layout="centered")
-
-# 让网页右上角的时间每 10 秒钟自动刷新一次
-st_autorefresh(interval=10000, key="dataclock")
 
 # 注入高档深色系 CSS 样式表
 st.markdown("""
@@ -42,29 +39,29 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 渲染“时间与战术提醒横幅”
+# 校准北京时间 (东八区)
 SHA_TZ = timezone(timedelta(hours=8))
 now = datetime.datetime.now(SHA_TZ)
 now_time = now.strftime("%Y-%m-%d %H:%M:%S")
 
-st.markdown(f"""
-    <div class="time-banner">
-        <div class="time-text">🕒 当前北京时间：{now_time}</div>
-        <div class="remind-text">⚡ 战术提醒：请于每个交易日【14:30】准时点击下方按钮，抓取盘中最后半小时的黄金决战期溢价！</div>
-    </div>
-""", unsafe_allow_html=True)
-
 st.title("🦅 搞钱小本本的lof溢价雷达")
 st.caption("全自动大浪淘沙 • 实时过滤已暂停申购的品种")
 
-if st.button("🔄 立即刷新全市场数据", type="primary"):
-    current_time = now.strftime("%Y-%m-%d %H:%M")
-    
+# 将战术横幅直接固定在标题下方
+st.markdown(f"""
+    <div class="time-banner">
+        <div class="remind-text">⚡ 战术铁律：请于每个交易日【14:30】准时点击下方按钮刷新 ⚡</div>
+        <div style="font-size: 13px; color: #BFDBFE; margin-top: 3px;">场外申购截单盲区前最后半小时，是捕捉全天疯狂溢价的终极决战期</div>
+    </div>
+""", unsafe_allow_html=True)
+
+# 核心刷新动作
+if st.button("🔄 立即刷新全市场数据并生成量化内参", type="primary"):
     with st.spinner("正在全力检索全市场数据并生成报告..."):
         overseas_keywords = ["纳斯", "标普", "原油", "油气", "商品", "互联", "中概", "日经", "德国", "法国", "印度", "越南", "亚洲", "全球", "海外"]
         premium_threshold = 3.0
         
-        # 北京时间硬核精准判定算法
+        # 北京时间硬核开闭市状态判定
         is_weekend = now.weekday() >= 5
         time_now = now.time()
         in_morning_trade = datetime.time(9, 15) <= time_now <= datetime.time(11, 30)
@@ -103,19 +100,18 @@ if st.button("🔄 立即刷新全市场数据", type="primary"):
         if fund_df is not None and not fund_df.empty:
             total_scanned = len(fund_df)
 
-            # 状态提示归位
+            # 📢 此时的状态提示里包含精准的“数据摘取时间戳”，雷打不动
             if is_market_open:
-                st.success(f"📊 LOF 溢价及流动性雷达（盘中实时版） | 统计时间: {current_time}")
+                st.success(f"📊 实时扫盘成功 | 数据抓取时间 (北京时间): {now_time}（盘中实时版）")
             else:
-                st.info(f"📢 当前非交易时间，已自动激活【盘后精确复盘算法】")
+                st.info(f"📢 复盘扫盘成功 | 数据抓取时间 (北京时间): {now_time}（已自动激活盘后备用算法）")
             
             st.write(f"**当前过滤规则**：溢价率 $\\ge$ {premium_threshold}%，且【开放场外申购】。已自动拦截暂停申购品种。")
             st.markdown("---")
             
-            # 渲染数据大看板
+            # 渲染大看板指标
             col1, col2 = st.columns(2)
             
-            # 🌟 修复底层：为了在大看板中显示正确的“达标总数”，我们需要先过一遍筛选，拿到纯数字
             count_target = 0
             valid_rows = []
             
@@ -128,7 +124,6 @@ if st.button("🔄 立即刷新全市场数据", type="primary"):
                     try:
                         premium = float(row['溢价率']) if is_market_open else float(row['真实收盘溢价率'])
                         if premium >= premium_threshold:
-                            # 过滤场外暂停申购
                             try:
                                 limit_info = ak.fund_open_format_xw()
                                 matched_fund = limit_info[limit_info['基金代码'] == code]
@@ -140,12 +135,10 @@ if st.button("🔄 立即刷新全市场数据", type="primary"):
                                 continue
                                 
                             count_target += 1
-                            # 把洗干净的达标数据存下，稍后直接原位渲染
                             valid_rows.append((row, premium, status_desc))
                     except:
                         continue
 
-            # 动态渲染看板数字
             with col1:
                 st.metric(label="🗺️ A 股全市场 LOF 扫描总数", value=f"{total_scanned} 只")
             with col2:
@@ -153,7 +146,7 @@ if st.button("🔄 立即刷新全市场数据", type="primary"):
             
             st.markdown("---")
 
-            # 🌟 核心修复行动：直接抛弃 HTML 缓存列表，原地使用 st.markdown 刷出实体卡片！
+            # 原地渲染卡片文案
             if count_target == 0:
                 st.subheader("⚖️ 市场平静。当前全市场暂未发现符合条件的疯狂品种。☕")
             else:
@@ -170,7 +163,6 @@ if st.button("🔄 立即刷新全市场数据", type="primary"):
                     else:
                         amount_wan = raw_amount / 10000.0
                     
-                    # 强行原地渲染！杜绝被缓存机制吞掉
                     st.markdown(f"""
                     <div class="lof-card">
                         <div class="lof-title">{current_rank}. 【{name}】 ({code})</div>
@@ -196,6 +188,5 @@ if st.button("🔄 立即刷新全市场数据", type="primary"):
                 
                 st.info("💡 提示：电脑端可直接拖动鼠标复制卡片文本，手机端长按即可选择复制文字发至微信群。")
         else:
-            # 数据源断网物理休市温柔兜底
             st.warning("☕ 📢 提示：当前正值周末/节假日交易所系统清算期，官方历史数据源临时闭门维护。")
             st.info("💡 本雷达将于【明天（周一）开盘后】全面恢复全自动实时扫盘，届时请点击上方按钮刷新。")
