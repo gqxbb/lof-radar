@@ -1,15 +1,15 @@
-name: 飞书LOF全自动完美扫盘
+name: V1飞书LOF全自动完美扫盘
 
 on:
-  workflow_dispatch:  # 保留人工手动触发后门
+  workflow_dispatch:  # 保留人工手动触发按钮
   schedule:
-    - cron: '30 6 * * 1-5'  # 🍏 国际标准时间 6:30，正好对应北京时间周一至周五的下午 14:30 决战期！
+    - cron: '30 6 * * 1-5'  # 北京时间周一至周五下午 14:30 准时自动执行
 
 jobs:
   run-radar:
     runs-on: ubuntu-latest
     env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'  # 强行粉碎 Node 20 警告
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'  # 👑 强行粉碎一切旧环境导致的断网和卡死警告
     steps:
     - name: 1. 拉取最新代码
       uses: actions/checkout@v4
@@ -25,5 +25,5 @@ jobs:
 
     - name: 4. 强行开火发射
       env:
-        FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+        FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}  # 确保 V1 的 Settings 密码箱里也有这个飞书链接
       run: python cron_radar.py
