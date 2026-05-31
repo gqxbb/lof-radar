@@ -33,9 +33,16 @@ st.markdown("""
         border-left: 5px solid #EF4444;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); 
     }
+    .lof-card:hover {
+        border-left: 5px solid #F87171;
+        background-color: #253147;
+        transition: 0.3s;
+    }
     .lof-title { color: #F3F4F6; font-size: 18px; font-weight: bold; }
     .premium-text { color: #EF4444; font-size: 20px; font-weight: bold; }
-    .stButton { text-align: center; }
+    
+    /* 强制让 Streamlit 容器内的按钮组件自身水平居中 */
+    div.stButton { text-align: center; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -47,7 +54,7 @@ now_time = now.strftime("%Y-%m-%d %H:%M:%S")
 st.title("🦅 搞钱小本本的lof溢价雷达")
 st.caption("全自动大浪淘沙 • 实时过滤已暂停申购的品种")
 
-# 将战术横幅直接固定在标题下方
+# 将战术横幅固定在标题下方
 st.markdown(f"""
     <div class="time-banner">
         <div class="remind-text">⚡ 战术铁律：请于每个交易日【14:30】准时点击下方按钮刷新 ⚡</div>
@@ -55,8 +62,17 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-# 核心刷新动作
-if st.button("🔄 立即刷新全市场数据并生成量化内参", type="primary"):
+# 🍏 【UI 核心调整】：利用三列等分画布，强行把按钮卡在正中间列，实现完美的物理居中
+col_left, col_btn, col_right = st.columns([1, 3, 1])
+
+with col_btn:
+    # 🍏 【文案核心微调】：按您的要求正式变更为“立即刷新市场LOF数据并生成报告”
+    refresh_trigger = st.button("🔄 立即刷新市场LOF数据并生成报告", type="primary", use_container_width=True)
+
+# 核心刷新动作执行逻辑
+if refresh_trigger:
+    current_time = now.strftime("%Y-%m-%d %H:%M")
+    
     with st.spinner("正在全力检索全市场数据并生成报告..."):
         overseas_keywords = ["纳斯", "标普", "原油", "油气", "商品", "互联", "中概", "日经", "德国", "法国", "印度", "越南", "亚洲", "全球", "海外"]
         premium_threshold = 3.0
@@ -100,7 +116,7 @@ if st.button("🔄 立即刷新全市场数据并生成量化内参", type="prim
         if fund_df is not None and not fund_df.empty:
             total_scanned = len(fund_df)
 
-            # 📢 此时的状态提示里包含精准的“数据摘取时间戳”，雷打不动
+            # 状态提示
             if is_market_open:
                 st.success(f"📊 实时扫盘成功 | 数据抓取时间 (北京时间): {now_time}（盘中实时版）")
             else:
@@ -122,7 +138,7 @@ if st.button("🔄 立即刷新全市场数据并生成量化内参", type="prim
                 
                 if is_overseas:
                     try:
-                        premium = float(row['溢价率']) if is_market_open else float(row['真实收盘溢价率'])
+                        premium = float(row['溢价率']) if is_market_open else float(row['真实收盘溢解率'])
                         if premium >= premium_threshold:
                             try:
                                 limit_info = ak.fund_open_format_xw()
@@ -146,7 +162,7 @@ if st.button("🔄 立即刷新全市场数据并生成量化内参", type="prim
             
             st.markdown("---")
 
-            # 原地渲染卡片文案
+            # 原地渲染卡片
             if count_target == 0:
                 st.subheader("⚖️ 市场平静。当前全市场暂未发现符合条件的疯狂品种。☕")
             else:
