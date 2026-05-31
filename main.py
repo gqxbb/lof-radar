@@ -4,6 +4,7 @@ import os
 import datetime
 from datetime import timezone, timedelta
 import pandas as pd
+import requests  # 用于向手机微信发送弹窗请求
 
 # 强行忽略代理
 os.environ['NO_PROXY'] = 'eastmoney.com,sinajs.cn'
@@ -11,15 +12,15 @@ os.environ['NO_PROXY'] = 'eastmoney.com,sinajs.cn'
 # 限制网页最大宽度为黄金分割比例，两边自动留白居中
 st.set_page_config(page_title="搞钱小本本的lof溢价雷达", layout="centered")
 
+# 🍏 梁总，请把下面引号里的内容替换为你刚刚拿到的真实 PDU 字符串钥匙
+PUSHDEER_KEY = "PDU41743TMGmcUxFLSheqxKbOVZg6iqy8JH0i1q6a" 
+
 # 注入高档深色系 CSS 样式表
 st.markdown("""
     <style>
     .stApp { background-color: #121826; color: #F3F4F6; }
-    
-    /* 🌟 新增：强制让 Streamlit 原生的 Title 和 Caption 在网页中轴线居中对齐 */
     .stApp h1 { text-align: center; font-size: 32px; font-weight: bold; margin-bottom: 5px; }
     .stApp p { text-align: center; color: #9CA3AF; }
-    
     .time-banner { 
         background: linear-gradient(135deg, #1E3A8A, #3B82F6); 
         padding: 18px; 
@@ -45,8 +46,6 @@ st.markdown("""
     }
     .lof-title { color: #F3F4F6; font-size: 18px; font-weight: bold; }
     .premium-text { color: #EF4444; font-size: 20px; font-weight: bold; }
-    
-    /* 强制让 3 栏容器内的按钮组件自身水平居中 */
     div.stButton { text-align: center; }
     </style>
 """, unsafe_allow_html=True)
@@ -64,11 +63,8 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-# 🌟 已经通过上方 CSS 样式强行注入居中属性
 st.title("🦅 搞钱小本本的lof溢价雷达")
 st.caption("全自动大浪淘沙 • 实时过滤已暂停申购的品种")
-
-# 预留间距，让排版更舒展
 st.write("")
 
 # 利用三列等分画布，强行把按钮卡在正中间列，实现完美的物理居中
@@ -129,6 +125,103 @@ if refresh_trigger:
                 st.success(f"📊 实时扫盘成功 | 数据抓取时间 (北京时间): {now_time}（盘中实时版）")
             else:
                 st.info(f"📢 复盘扫盘成功 | 数据抓取时间 (北京时间): {now_time}（已自动激活盘后备用算法）")
+            
+            st.markdown(f"<p style='text-align: center; color: #9CA3AF;'><b>当前过滤规则</b>：溢价率 ≥ {premium_threshold}%，且【开放场外申购】。已自动拦截暂停申购品种。</p>", unsafe_allow_html=True)
+            st.markdown("---")
+            
+            # 渲染大看板指标
+            col1, col2 = st.columns(2)
+            
+            count_target = 0
+            valid_rows = []
+            push_text = ""
+            
+            for index, row in fund_df.iterrows():
+                code = str(row['基金代码'])
+                name = row['基金简称']
+                is_overseas = any(keyword in name for keyword in overseas_keywords) or code.startswith("1611") or code.startswith("1649") or code.startswith("501")
+                
+                if is_overseas:
+                    try:
+                        premium = float(row['溢价率']) if is_market_open else float(row['真实收盘溢价率'])
+                        if premium >= premium_threshold:
+                            try:
+                                limit_info = ak.fund_open_format_xw()
+                                matched_fund = limit_info[limit_info['基金代码'] == code]
+                                status_desc = matched_fund.iloc[0]['申购状态'] if not matched_fund.empty else "开放申购"
+                            except:
+                                status_desc = "开放申购"
+
+                            if "暂停申购" in status_desc or "停申" in status_desc or status_desc == "暂停":
+                                continue
+                                
+                            count_target += 1
+                            valid_rows.append((row, premium, status_desc))
+                            
+                            # 组装推送文本摘要
+                            push_text += f"{count_target}. {name}({code}) | 溢价率:{premium:.2f}% | 状态:{status_desc}\n"
+                    except:
+                        continue
+
+            with col1:
+                st.metric(label="🗺️ A 股全市场 LOF 扫描总数", value=f"{total_scanned} 只")
+            with col2:
+                st.metric(label="🎯 溢价率 $\\ge$ 3% 且可申购达达标数", value=f"{count_target} 只")
+            
+            st.markdown("---")
+
+            # 原地渲染卡片
+            if count_target == 0:
+                st.markdown("<h3 style='text-align: center; color: #9CA3AF;'>⚖️ 市场平静。当前全市场暂未发现符合条件的疯狂品种。☕</h3>", unsafe_allow_html=True)
+            else:
+                # 🍏 【触发微信推送】：只要有肉票，且正确配置了Key，立刻向你手机发射通知
+                if PUSHDEER_KEY and PUSHDEER_KEY != "你的PushDeerKey写在这里":
+                    try:
+                        push_title = f"🦅 搞钱小本本发现 {count_target} 只高溢价套利标的！"
+                        requests.get(f"https://api2.pushdeer.com/message/push?text={push_title}&desp={push_text}&pushkey={PUSHDEER_KEY}")
+                    except:
+                        pass
+
+                current_rank = 0
+                for row, premium, status_desc in valid_rows:
+                    current_rank += 1
+                    code = str(row['基金代码'])
+                    name = row['基金简称']
+                    price = float(row['现价'])
+                    raw_amount = float(row.get('成交额', 0.0))
+                    
+                    if code.startswith("50"):
+                        amount_wan = raw_amount
+                    else:
+                        amount_wan = raw_amount / 10000.0
+                    
+                    st.markdown(f"""
+                    <div class="lof-card">
+                        <div class="lof-title">{current_rank}. 【{name}】 ({code})</div>
+                        <div style="margin-top: 8px;">
+                            <span class="premium-text">{'盘中实时' if is_market_open else '静态收盘'}溢价率：{premium:.2f}%</span>
+                        </div>
+                        <div style="margin-top: 8px; color: #9CA3AF; font-size: 14px;">
+                            • 场内现价/收盘价：<b style="color: #F3F4F6;">{price:.3f} 元</b> &nbsp;&nbsp;|&nbsp;&nbsp; 
+                            {'场外盘中估值' if is_market_open else '场外最新官方净值'}：<b style="color: #F3F4F6;">{row.get('盘中估值', row.get('最新净值', 0.0)):.4f} 元</b>
+                        </div>
+                        <div style="margin-top: 4px; color: #9CA3AF; font-size: 14px;">
+                            • 当日场内成交额：<b style="color: #F3F4F6;">{amount_wan:.2f} 万元</b> &nbsp;&nbsp;|&nbsp;&nbsp; 
+                            场外申购状态：<b style="color: #10B981;">✅ {status_desc}</b>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    if is_market_open:
+                        if amount_wan < 200:
+                            st.warning(f"⚠️ 实战提示：该品种当日成交额不足 200 万，流动性偏低，注意防范冲击成本。")
+                        else:
+                            st.success(f"🔥 实战提示：成交活跃，流动性十分充裕，属于优质套利标的！")
+                
+                st.info("💡 提示：电脑端可直接拖动鼠标复制卡片文本，手机端长按即可选择复制文字发至微信群。")
+        else:
+            st.warning("☕ 📢 提示：当前正值周末/节假日交易所系统清算期，官方历史数据源临时闭门维护。")
+            st.info("💡 本雷达将于【明天（周一）开盘后】全面恢复全自动实时扫盘，届时请点击上方按钮刷新。")
             
             # 让规则文本也优雅地在正中间做出提示说明
             st.markdown(f"<p style='text-align: center; color: #9CA3AF;'><b>当前过滤规则</b>：溢价率 ≥ {premium_threshold}%，且【开放场外申购】。已自动拦截暂停申购品种。</p>", unsafe_allow_html=True)
