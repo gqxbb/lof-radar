@@ -59,13 +59,8 @@ if st.button("🔄 立即刷新全市场数据", type="primary"):
 
         # 3. 开始清洗与统计数据
         if fund_df is not None and not fund_df.empty:
-            # 提前统计全量海外 LOF 总数（全面兼容 50、16、159 等号段）
-            total_scanned = 0
-            for index, row in fund_df.iterrows():
-                code = str(row.get('基金代码', row.get('代码', '')))
-                name = row.get('基金简称', row.get('名称', ''))
-                if any(keyword in name for keyword in overseas_keywords) or code.startswith("1611") or code.startswith("1649") or code.startswith("501"):
-                    total_scanned += 1
+            # 🍏 【方案一核心修改】：直接统计东财拉回来的 A 股全市场 LOF 原始总底数
+            total_scanned = len(fund_df)
 
             # 顶部面板状态切换
             if is_market_open:
@@ -114,8 +109,7 @@ if st.button("🔄 立即刷新全市场数据", type="primary"):
                             price = float(row['现价'])
                             raw_amount = float(row.get('成交额', 0.0))
                             
-                            # 🍏 【核心漏洞修复】完美兼容沪深交易所接口单位误差
-                            # 上交所（50开头）接口默认吐出来就是万元；深交所（16开头）接口吐出来的是元，需要除以10000
+                            # 完美兼容沪深交易所接口单位误差
                             if code.startswith("50"):
                                 amount_wan = raw_amount
                             else:
@@ -154,7 +148,7 @@ if st.button("🔄 立即刷新全市场数据", type="primary"):
 
             # 5. 渲染顶部大看板指标
             with col1:
-                st.metric(label="🗺️ 全市场海外 LOF 扫描总数", value=f"{total_scanned} 只")
+                st.metric(label="🗺️ A 股全市场 LOF 扫描总数", value=f"{total_scanned} 只")
             with col2:
                 st.metric(label="🎯 溢价率 $\\ge$ 3% 且可申购达标数", value=f"{count_target} 只")
             
