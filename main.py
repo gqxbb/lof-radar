@@ -9,34 +9,43 @@ from streamlit_autorefresh import st_autorefresh
 # 强行忽略代理
 os.environ['NO_PROXY'] = 'eastmoney.com,sinajs.cn'
 
-st.set_page_config(page_title="海外LOF套利雷达", layout="wide")
+st.set_page_config(page_title="搞钱小本本的lof溢价雷达", layout="centered")
 
-# 1. 让网页右上角的时间每 10 秒钟自动刷新一次
+# 让网页右上角的时间每 10 秒钟自动刷新一次
 st_autorefresh(interval=10000, key="dataclock")
 
-# 2. 注入高档深色系 CSS 样式表
+# 注入高档深色系 CSS 样式表
 st.markdown("""
     <style>
     .stApp { background-color: #121826; color: #F3F4F6; }
     .time-banner { 
         background: linear-gradient(135deg, #1E3A8A, #3B82F6); 
-        padding: 15px; 
+        padding: 18px; 
         border-radius: 8px; 
-        margin-bottom: 20px; 
-        text-align: center;
+        margin-bottom: 25px; 
+        text-align: center; 
         border: 1px solid #60A5FA;
     }
     .time-text { font-size: 22px; font-weight: bold; color: #FFFFFF; font-family: monospace; }
     .remind-text { font-size: 14px; color: #E0F2FE; margin-top: 5px; font-weight: bold; }
-    .lof-card { background-color: #1F2937; padding: 20px; border-radius: 10px; margin-bottom: 15px; border-left: 5px solid #EF4444; }
+    .lof-card { 
+        background-color: #1F2937; 
+        padding: 20px; 
+        border-radius: 10px; 
+        margin-bottom: 15px; 
+        border-left: 5px solid #EF4444;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); 
+    }
     .lof-title { color: #F3F4F6; font-size: 18px; font-weight: bold; }
     .premium-text { color: #EF4444; font-size: 20px; font-weight: bold; }
+    .stButton { text-align: center; }
     </style>
 """, unsafe_allow_html=True)
 
-# 3. 🍏 【时区硬核校准】：强行将服务器时间扭转为中国北京时间（UTC+8）
+# 渲染“时间与战术提醒横幅”
 SHA_TZ = timezone(timedelta(hours=8))
-now_time = datetime.datetime.now(SHA_TZ).strftime("%Y-%m-%d %H:%M:%S")
+now = datetime.datetime.now(SHA_TZ)
+now_time = now.strftime("%Y-%m-%d %H:%M:%S")
 
 st.markdown(f"""
     <div class="time-banner">
@@ -45,26 +54,43 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-st.title("🦅 梁总的海外 LOF 溢价雷达")
+st.title("🦅 搞钱小本本的lof溢价雷达")
 st.caption("全自动大浪淘沙 • 实时过滤已暂停申购的品种")
 
 if st.button("🔄 立即刷新全市场数据", type="primary"):
-    # 🍏 刷新的统计时间同步校准为北京时间
-    current_time = datetime.datetime.now(SHA_TZ).strftime("%Y-%m-%d %H:%M")
+    current_time = now.strftime("%Y-%m-%d %H:%M")
     
     with st.spinner("正在全力检索全市场数据并生成报告..."):
         overseas_keywords = ["纳斯", "标普", "原油", "油气", "商品", "互联", "中概", "日经", "德国", "法国", "印度", "越南", "亚洲", "全球", "海外"]
         premium_threshold = 3.0
         
-        is_market_open = True
+        # 🍏 【北京时间硬核精准判定算法】
+        # 判断今天是不是周末（周六是5，周日是6）
+        is_weekend = now.weekday() >= 5
+        
+        # 判断当前时间是否在 A 股盘中交易时段内 (9:15-11:30, 13:00-15:00)
+        time_now = now.time()
+        in_morning_trade = datetime.time(9, 15) <= time_now <= datetime.time(11, 30)
+        in_afternoon_trade = datetime.time(13, 0) <= time_now <= datetime.time(15, 0)
+        
+        # 只有【工作日】且【在对应时间段内】，才认定为开盘，否则一律强制切入盘后复盘模式
+        if not is_weekend and (in_morning_trade or in_afternoon_trade):
+            is_market_open = True
+        else:
+            is_market_open = False
+        
         fund_df = None
 
-        try:
-            fund_df = ak.fund_lof_spot_em()
-            if '盘中估值' not in fund_df.columns or fund_df['溢价率'].isnull().all():
-                raise ValueError("当前非实时交易时间")
-        except Exception as e:
-            is_market_open = False
+        # 核心抓取逻辑
+        if is_market_open:
+            # 🟢 开盘模式：直接拉实时快照
+            try:
+                fund_df = ak.fund_lof_spot_em()
+            except:
+                is_market_open = False # 如果开盘抓取失败，自动降级去跑盘后算法
+        
+        # 🔴 如果判定为闭市，或者上面实时接口断网，无缝切入盘后精确算法
+        if not is_market_open:
             try:
                 raw_df = ak.fund_lof_spot_em()
                 em_nav_df = ak.fund_open_fund_daily_em()
@@ -78,12 +104,13 @@ if st.button("🔄 立即刷新全市场数据", type="primary"):
                     merged_df['真实收盘溢价率'] = (merged_df['现价'] - merged_df['最新净值']) / merged_df['最新净值'] * 100
                     
                     fund_df = merged_df
-            except Exception as e_inner:
+            except:
                 pass
 
         if fund_df is not None and not fund_df.empty:
             total_scanned = len(fund_df)
 
+            # 🌟 状态提示归位！现在绝对会雷打不动地根据时间正确显示
             if is_market_open:
                 st.success(f"📊 LOF 溢价及流动性雷达（盘中实时版） | 统计时间: {current_time}")
             else:
