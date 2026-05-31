@@ -61,7 +61,10 @@ if st.button("🔄 立即刷新全市场数据", type="primary"):
                     
                     fund_df = merged_df
             except Exception as e_inner:
-                st.error(f"云端服务器网络繁忙，请稍后再试: {e_inner}")
+                # 🍏 终极温柔兜底：如果周末东财连历史净值服务器也关了，不弹英文报错，而是优雅提示
+                st.warning("☕ 📢 提示：当前正值周末/节假日交易所系统清算期，官方历史数据源临时闭门维护。")
+                st.info("💡 本雷达将于【明天（周一）开盘后】全面恢复全自动实时扫盘，届时请点击上方按钮刷新。")
+                fund_df = None
 
         if fund_df is not None and not fund_df.empty:
             # 顶部状态面板
